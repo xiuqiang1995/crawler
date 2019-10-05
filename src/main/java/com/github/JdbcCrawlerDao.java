@@ -2,6 +2,9 @@ package com.github;
 
 import java.sql.*;
 
+/**
+ * 分离数据库操作
+ */
 public class JdbcCrawlerDao implements CrawlerDao{
     Connection connection;
 
