@@ -18,41 +18,43 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.ResultSet;
 import java.util.ArrayList;
-import java.util.List;
 
 
 public class Main {
     @SuppressFBWarnings("DMI_CONSTANT_DB_PASSWORD")
     public static void main(String[] args) throws IOException, SQLException {
         Connection connection = DriverManager.getConnection("jdbc:h2:file:/Users/br/githubws/crawler-1/crawlerDB", "root", "root");
-        while (true) {
-            //待处理链接池
-            List<String> linkPool = loadLinksFromDataBase(connection, "select link from LINKS_TO_BE_PROCESSED");
-            if (linkPool.isEmpty()) {
-                break;
-            }
-            //删除将要被处理的链接
-            String link = linkPool.remove(linkPool.size() - 1);
-            insertLinkIntoDataBase(connection, link, "delete from LINKS_TO_BE_PROCESSED where link = ?");
-
+        String link;
+        //从数据库加载一个待处理link
+        while ((link = getOneLinkAndDeleteIt(connection)) != null) {
             //断点续传
             if (!isLinkProcessed(connection, link)) {
                 if (isNewsLink(link)) {
                     Document doc = HttpGetAndParseHtml(link);
                     parseLinkAndStoreIntoDataBase(connection, doc);
                     storeIntoDataBase(doc);
-                    insertLinkIntoDataBase(connection, link, "INSERT INTO LINKS_ALREADY_PROCESSED (link) values (?)");
+                    updateDatabase(connection, link, "INSERT INTO LINKS_ALREADY_PROCESSED (link) values (?)");
                 }
             }
 
         }
     }
 
+    private static String getOneLinkAndDeleteIt(Connection connection) throws SQLException {
+        //待处理链接池
+        String link = loadALinksFromDataBase(connection, "select link from LINKS_TO_BE_PROCESSED LIMIT 1");
+        if (link == null) {
+            return null;
+        }
+        updateDatabase(connection, link, "delete from LINKS_TO_BE_PROCESSED where link = ?");
+        return link;
+    }
+
     private static void parseLinkAndStoreIntoDataBase(Connection connection, Document doc) throws SQLException {
         for (Element aTag : doc.select("a")) {
             String href = aTag.attr("href");
             //将爬到的LINK存入 LINKS_TO_BE_PROCESSED 表中
-            insertLinkIntoDataBase(connection, href, "INSERT INTO LINKS_TO_BE_PROCESSED (link) values (?)");
+            updateDatabase(connection, href, "INSERT INTO LINKS_TO_BE_PROCESSED (link) values (?)");
         }
     }
 
@@ -74,27 +76,26 @@ public class Main {
     }
 
     //将处理过的link加入到 LINKS_ALREADY_PROCESSED 表中
-    private static void insertLinkIntoDataBase(Connection connection, String href, String s) throws SQLException {
+    private static void updateDatabase(Connection connection, String href, String s) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(s)) {
             ps.setString(1, href);
             ps.executeUpdate();
         }
     }
 
-    private static List<String> loadLinksFromDataBase(Connection connection, String sql) throws SQLException {
+    private static String loadALinksFromDataBase(Connection connection, String sql) throws SQLException {
         ResultSet resultSet = null;
-        List<String> list = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             resultSet = ps.executeQuery();
             while (resultSet.next()) {
-                list.add(resultSet.getString(1));
+                return resultSet.getString(1);
             }
         } finally {
             if (resultSet != null) {
                 resultSet.close();
             }
         }
-        return list;
+        return null;
     }
 
     private static void storeIntoDataBase(Document doc) {
