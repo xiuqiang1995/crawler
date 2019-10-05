@@ -1,10 +1,6 @@
 package com.github;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.List;
-
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -16,30 +12,89 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class Main {
-    public static void main(String[] args) throws IOException {
-        //待处理链接池
-        List<String> linkPool = new ArrayList<>();
-        //已处理链接池
-        Set<String> processedLinks = new HashSet<>();
-
-        linkPool.add("https://sina.cn");
+    @SuppressFBWarnings("DMI_CONSTANT_DB_PASSWORD")
+    public static void main(String[] args) throws IOException, SQLException {
+        Connection connection = DriverManager.getConnection("jdbc:h2:file:/Users/br/githubws/crawler-1/crawlerDB", "root", "root");
         while (true) {
+            //待处理链接池
+            List<String> linkPool = loadLinksFromDataBase(connection, "select link from LINKS_TO_BE_PROCESSED");
             if (linkPool.isEmpty()) {
                 break;
             }
+            //删除将要被处理的链接
             String link = linkPool.remove(linkPool.size() - 1);
-            if (processedLinks.contains(link)) {
-                continue;
+            insertLinkIntoDataBase(connection, link, "delete from LINKS_TO_BE_PROCESSED where link = ?");
+
+            //断点续传
+            if (!isLinkProcessed(connection, link)) {
+                if (isNewsLink(link)) {
+                    Document doc = HttpGetAndParseHtml(link);
+                    parseLinkAndStoreIntoDataBase(connection, doc);
+                    storeIntoDataBase(doc);
+                    insertLinkIntoDataBase(connection, link, "INSERT INTO LINKS_ALREADY_PROCESSED (link) values (?)");
+                }
             }
-            if (isNewsLink(link)) {
-                Document doc = HttpGetAndParseHtml(link);
-                doc.select("a").stream().map(aTag -> aTag.attr("href")).forEach(linkPool::add);
-                storeIntoDataBase(doc);
-                processedLinks.add(link);
+
+        }
+    }
+
+    private static void parseLinkAndStoreIntoDataBase(Connection connection, Document doc) throws SQLException {
+        for (Element aTag : doc.select("a")) {
+            String href = aTag.attr("href");
+            //将爬到的LINK存入 LINKS_TO_BE_PROCESSED 表中
+            insertLinkIntoDataBase(connection, href, "INSERT INTO LINKS_TO_BE_PROCESSED (link) values (?)");
+        }
+    }
+
+    private static boolean isLinkProcessed(Connection connection, String link) throws SQLException {
+        ResultSet resultSet = null;
+        try (PreparedStatement ps = connection.prepareStatement("select link from LINKS_ALREADY_PROCESSED where link = ?")) {
+            ps.setString(1, link);
+            resultSet = ps.executeQuery();
+            while (resultSet.next()) {
+                //处理过
+                return true;
+            }
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
             }
         }
+        return false;
+    }
+
+    //将处理过的link加入到 LINKS_ALREADY_PROCESSED 表中
+    private static void insertLinkIntoDataBase(Connection connection, String href, String s) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(s)) {
+            ps.setString(1, href);
+            ps.executeUpdate();
+        }
+    }
+
+    private static List<String> loadLinksFromDataBase(Connection connection, String sql) throws SQLException {
+        ResultSet resultSet = null;
+        List<String> list = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            resultSet = ps.executeQuery();
+            while (resultSet.next()) {
+                list.add(resultSet.getString(1));
+            }
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+        }
+        return list;
     }
 
     private static void storeIntoDataBase(Document doc) {
