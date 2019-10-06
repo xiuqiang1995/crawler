@@ -1,6 +1,5 @@
 package com.github;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -33,7 +32,7 @@ public class Crawler extends Thread {
                 //断点续传
                 if (!dao.isLinkProcessed(link)) {
                     if (isNewsLink(link)) {
-                        System.out.println("link = " + link);
+//                        System.out.println("link = " + link);
                         Document doc = HttpGetAndParseHtml(link);
                         parseLinkAndStoreIntoDataBase(doc);
                         storeIntoDataBase(doc, link);
@@ -52,7 +51,7 @@ public class Crawler extends Thread {
             String href = aTag.attr("href");
             if (href.startsWith("//")) {
                 href = "https:" + href;
-                System.out.println("href2 = " + href);
+//                System.out.println("href2 = " + href);
             }
             //将爬到的LINK存入 LINKS_TO_BE_PROCESSED 表中
             if (!href.toLowerCase().startsWith("javascript")) {
@@ -66,7 +65,7 @@ public class Crawler extends Thread {
         ArrayList<Element> articleTags = doc.select("article");
         if (!articleTags.isEmpty()) {
             String title = articleTags.get(0).child(0).text();
-            System.out.println("title = " + title);
+//            System.out.println("title = " + title);
             String content = articleTags.get(0).select("p").stream().map(Element::text).collect(Collectors.joining("\n"));
             dao.insertNewsIntoDatabase(link, title, content);
 

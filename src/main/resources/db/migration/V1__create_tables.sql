@@ -18,4 +18,4 @@ create table NEWS
     MODIFIED_AT TIMESTAMP default now(),
     constraint NEWS_PK
         primary key (ID)
-);
+) DEFAULT CHARSET=utf8mb4;
