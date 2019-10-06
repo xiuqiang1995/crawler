@@ -17,31 +17,33 @@ import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 
-public class Crawler {
-    //    private CrawlerDao dao = new JdbcCrawlerDao();
-    private CrawlerDao dao = new MybatisCrawlerDao();
+public class Crawler extends Thread {
+    private CrawlerDao dao;
 
-    @SuppressFBWarnings("DMI_CONSTANT_DB_PASSWORD")
-    public static void main(String[] args) throws IOException, SQLException {
-        new Crawler().run();
-
+    public Crawler(CrawlerDao dao) {
+        this.dao = dao;
     }
 
-    public void run() throws SQLException, IOException {
+    @Override
+    public void run() {
         String link;
-        //从数据库加载一个待处理link
-        while ((link = dao.getOneLinkAndDeleteIt()) != null) {
-            //断点续传
-            if (!dao.isLinkProcessed(link)) {
-                if (isNewsLink(link)) {
-                    System.out.println("link = " + link);
-                    Document doc = HttpGetAndParseHtml(link);
-                    parseLinkAndStoreIntoDataBase(doc);
-                    storeIntoDataBase(doc, link);
-                    dao.insertProcessedLink(link);
+        try {
+            //从数据库加载一个待处理link
+            while ((link = dao.getOneLinkAndDeleteIt()) != null) {
+                //断点续传
+                if (!dao.isLinkProcessed(link)) {
+                    if (isNewsLink(link)) {
+                        System.out.println("link = " + link);
+                        Document doc = HttpGetAndParseHtml(link);
+                        parseLinkAndStoreIntoDataBase(doc);
+                        storeIntoDataBase(doc, link);
+                        dao.insertProcessedLink(link);
+                    }
                 }
-            }
 
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

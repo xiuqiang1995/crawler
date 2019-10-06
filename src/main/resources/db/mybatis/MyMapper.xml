@@ -36,10 +36,10 @@
                 LINKS_ALREADY_PROCESSED
             </when>
             <otherwise>
-                links_to_be_processed
+                LINKS_TO_BE_PROCESSED
             </otherwise>
         </choose>
         (link)
-        values #{link}
+        values (#{link})
     </insert>
 </mapper>
