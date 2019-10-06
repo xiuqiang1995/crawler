@@ -18,7 +18,8 @@ import java.util.stream.Collectors;
 
 
 public class Crawler {
-    private CrawlerDao dao = new JdbcCrawlerDao();
+    //    private CrawlerDao dao = new JdbcCrawlerDao();
+    private CrawlerDao dao = new MybatisCrawlerDao();
 
     @SuppressFBWarnings("DMI_CONSTANT_DB_PASSWORD")
     public static void main(String[] args) throws IOException, SQLException {
@@ -33,11 +34,11 @@ public class Crawler {
             //断点续传
             if (!dao.isLinkProcessed(link)) {
                 if (isNewsLink(link)) {
-//                    System.out.println("link = " + link);
+                    System.out.println("link = " + link);
                     Document doc = HttpGetAndParseHtml(link);
                     parseLinkAndStoreIntoDataBase(doc);
                     storeIntoDataBase(doc, link);
-                    dao.updateDatabase(link, "INSERT INTO LINKS_ALREADY_PROCESSED (link) values (?)");
+                    dao.insertProcessedLink(link);
                 }
             }
 
@@ -53,7 +54,7 @@ public class Crawler {
             }
             //将爬到的LINK存入 LINKS_TO_BE_PROCESSED 表中
             if (!href.toLowerCase().startsWith("javascript")) {
-                dao.updateDatabase(href, "INSERT INTO LINKS_TO_BE_PROCESSED (link) values (?)");
+                dao.insertLinkToBeProcessed(href);
             }
         }
     }
@@ -72,7 +73,6 @@ public class Crawler {
 
 
     private static Document HttpGetAndParseHtml(String link) throws IOException {
-//        System.out.println("link = " + link);
         //从官方文档抄代码 http://hc.apache.org/httpcomponents-client-4.5.x/quickstart.html
         CloseableHttpClient httpclient = HttpClients.createDefault();
         if (link.startsWith("//")) {

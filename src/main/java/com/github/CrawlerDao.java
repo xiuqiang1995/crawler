@@ -7,10 +7,9 @@ public interface CrawlerDao {
 
     void insertNewsIntoDatabase(String link, String title, String content) throws SQLException;
 
-    void updateDatabase(String href, String s) throws SQLException;
-
     String getOneLinkAndDeleteIt() throws SQLException;
 
-    String loadaLinksFromDataBase(String sql) throws SQLException;
+    void insertLinkToBeProcessed(String href);
 
+    void insertProcessedLink(String link);
 }
