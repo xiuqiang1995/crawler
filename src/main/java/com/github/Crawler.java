@@ -32,7 +32,7 @@ public class Crawler extends Thread {
                 //断点续传
                 if (!dao.isLinkProcessed(link)) {
                     if (isNewsLink(link)) {
-//                        System.out.println("link = " + link);
+                        System.out.println("link = " + link);
                         Document doc = HttpGetAndParseHtml(link);
                         parseLinkAndStoreIntoDataBase(doc);
                         storeIntoDataBase(doc, link);

@@ -30,7 +30,7 @@ public class MockDataGenerator {
 
                     session.insert("com.github.MockMapper.insertNews", newsToBeInserted);
                     System.out.println("count = " + count);
-                    if(count % 2000 == 0){
+                    if (count % 2000 == 0) {
                         session.flushStatements();
                     }
                 }
